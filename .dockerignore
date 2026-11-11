@@ -1,0 +1,13 @@
+.git
+.github
+.vscode
+node_modules
+vendor
+.env
+.env.*
+storage/logs/*
+storage/framework/cache/data/*
+public/hot
+tests
+Dockerfile
+docker-compose.yml
