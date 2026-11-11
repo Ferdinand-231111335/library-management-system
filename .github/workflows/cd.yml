@@ -1,0 +1,44 @@
+name: CD
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy ke lokal
+    # Hanya jika CI sukses, dipicu push (bukan PR), dan berasal dari repo ini
+    if: >
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
+    runs-on: self-hosted
+    steps:
+      - name: Tarik image terbaru dan jalankan ulang
+        run: |
+          cd ~/library-deploy
+          docker compose pull
+          docker compose up -d --remove-orphans
+
+      - name: Health check
+        run: |
+          for i in $(seq 1 30); do
+            if curl -fsS -o /dev/null http://localhost:8082/; then
+              echo "Aplikasi sehat (percobaan $i)"
+              exit 0
+            fi
+            echo "Menunggu aplikasi... ($i/30)"
+            sleep 5
+          done
+          echo "Health check gagal"
+          docker compose -f ~/library-deploy/docker-compose.yml logs --tail=50 app
+          exit 1
+
+      - name: Bersihkan image lama
+        run: docker image prune -f
